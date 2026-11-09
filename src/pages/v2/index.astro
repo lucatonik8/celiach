@@ -1,0 +1,334 @@
+---
+import { Image, getImage } from 'astro:assets';
+import firma from '../../assets/firma-alpha.png';
+import Shot, { type Pic } from '../../components/Shot.astro';
+import { looks, formacion, contacto } from '../../data/portfolio';
+import { extraFor, mediaFor, ytId, ytThumb } from '../../data/media';
+import '../../styles/v2.css';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const lookFiles = import.meta.glob<{ default: ImageMetadata }>('../../assets/looks/*.jpg', { eager: true });
+const ownFor = (n: number) =>
+  Object.entries(lookFiles)
+    .filter(([p]) => p.includes(`look${String(n).padStart(2, '0')}-`))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, m]) => m.default);
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const toPic = async (src: ImageMetadata): Promise<Pic> => ({
+  src,
+  full: (await getImage({ src, width: Math.min(src.width, 1800), format: 'webp' })).src,
+});
+
+// Plantilla de cada proyecto según el material que tiene
+let alt = 0;
+const items = await Promise.all(
+  looks.map(async (look, i) => {
+    const n = i + 1;
+    const ownSrc = ownFor(n);
+    const mediaSrc = mediaFor(look.title);
+    const yt = ytId(look.video);
+    const tpl = yt ? 'clip' : mediaSrc.length >= 10 ? 'hs' : mediaSrc.length ? 'spread' : alt++ % 2 ? 'paper' : 'card';
+    const thumbSrc = yt ? ytThumb(yt) : undefined;
+    return {
+      look,
+      n,
+      nn: pad(n),
+      tpl,
+      yt,
+      ex: extraFor(look.title),
+      year: look.meta.find(([k]) => k === 'Fecha')?.[1],
+      own: await Promise.all(ownSrc.map(toPic)),
+      media: await Promise.all(mediaSrc.map(toPic)),
+      thumb: thumbSrc ? await toPic(thumbSrc) : undefined,
+    };
+  }),
+);
+
+// Portada: marco de miniaturas alrededor de la firma (ref. pop-up)
+const heroPics = [
+  ...items.map((it) => ({ src: it.own[0].src, n: it.nn })),
+  ...items.filter((it) => it.media.length).map((it) => ({ src: it.media[1]?.src ?? it.media[0].src, n: it.nn })),
+];
+const perim = (n: number, [x0, x1, y0, y1]: number[], ax: number, ay: number) =>
+  Array.from({ length: n }, (_, i) => {
+    const w = (x1 - x0) * ax, h = (y1 - y0) * ay;
+    let d = ((i + 0.5) / n) * 2 * (w + h);
+    const j = (k: number) => ((((i + 3) * 9301 + k * 49297) % 233280) / 233280 - 0.5) * 3;
+    let x: number, y: number;
+    if (d < w) { x = x0 + d / ax; y = y0; }
+    else if ((d -= w) < h) { x = x1; y = y0 + d / ay; }
+    else if ((d -= h) < w) { x = x1 - d / ax; y = y1; }
+    else { d -= w; x = x0; y = y1 - d / ay; }
+    return [+(x + j(1)).toFixed(2), +(y + j(2)).toFixed(2)];
+  });
+const MOBILE_N = 16;
+const posD = perim(heroPics.length, [7, 93, 10, 90], 1, 0.62);
+const posM = perim(MOBILE_N, [10, 90, 7, 86], 0.55, 1);
+
+const kinds = [...new Set(looks.map((l) => l.kind))];
+const igUrl = `https://instagram.com/${contacto.instagram.replace('@', '')}`;
+const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Celia Luengo Villa — Styling Portfolio · V2</title>
+    <meta name="description" content="Styling portfolio + marketing de moda. Archivo 2026." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Reenie+Beanie&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="bar">
+      <a href="#top" class="brand">C. LUENGO VILLA</a>
+      <span class="counter" aria-live="polite"></span>
+      <nav>
+        <a href="#indice">Índice</a>
+        <a href="#formacion">Formación</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+      <i class="progress" aria-hidden="true"></i>
+    </header>
+
+    <!-- Raíl de miniaturas numeradas (ref. archivo Nomad) -->
+    <nav class="rail" aria-label="Proyectos">
+      {items.map((it) => (
+        <a href={`#look-${it.nn}`} data-n={it.nn} aria-label={`Look ${it.nn}: ${it.look.title}`}>
+          <span>[{it.nn}]</span>
+          <Image src={firstSmall(it).src} alt="" width={96} format="webp" />
+        </a>
+      ))}
+    </nav>
+
+    <main>
+      <!-- 01 · PORTADA -->
+      <section class="hero" id="top">
+        <div class="frame" aria-hidden="true">
+          {heroPics.map((p, i) => (
+            <span
+              class:list={['ft', { dk: i >= MOBILE_N }]}
+              style={`--x:${posD[i][0]}%;--y:${posD[i][1]}%;--mx:${posM[i]?.[0] ?? 50}%;--my:${posM[i]?.[1] ?? 50}%;--s:${(0.78 + ((i * 7) % 5) * 0.12).toFixed(2)}`}
+            >
+              <Image src={p.src} alt="" width={260} format="webp" loading={i < 12 ? 'eager' : 'lazy'} />
+            </span>
+          ))}
+        </div>
+        <div class="hero-c">
+          <Image src={firma} alt="Celia Luengo Villa" class="firma" widths={[320, 640]} sizes="(min-width: 640px) 360px, 66vw" loading="eager" />
+          <p class="hero-t">STYLING&nbsp;&nbsp;PORTFOLIO<br />+&nbsp;&nbsp;MARKETING DE MODA</p>
+          <p class="hero-s" data-type>[ARCHIVO 2026] — {items.length} PROYECTOS — {kinds.join(' / ').toUpperCase()}</p>
+        </div>
+        <a href="#indice" class="down" aria-label="Ir al índice"><span>SCROLL</span>↓</a>
+      </section>
+
+      <!-- 02 · ÍNDICE (ref. Nomad: texto vertical + listado) -->
+      <section id="indice" class="indice">
+        <p class="vert" aria-hidden="true">
+          {items.map((it) => `[${it.nn}] ${it.look.title.toUpperCase()}. `).join('')} [00] FORMACIÓN EN MARKETING DE MODA.
+        </p>
+        <div class="indice-c">
+          <p class="label">[PRESENTACIÓN]</p>
+          <h2 class="serif" data-type>Archivo de estilismo</h2>
+          <p class="mute small">2023 — 2026 · MADRID</p>
+          <ol class="index">
+            <li><a href="#formacion"><span class="num">[00]</span><span class="it">Formación en marketing de moda</span><span class="mute">Máster</span></a></li>
+            {items.map((it) => (
+              <li>
+                <a href={`#look-${it.nn}`} data-peek={firstSmall(it).full}>
+                  <Image class="ithumb" src={firstSmall(it).src} alt="" width={120} format="webp" />
+                  <span class="num">[{it.nn}]</span>
+                  <span class="it">{it.look.title}</span>
+                  <span class="mute">{[it.look.kind, it.year].filter(Boolean).join(' · ')}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <img class="peek" alt="" aria-hidden="true" />
+      </section>
+
+      <!-- 03 · FORMACIÓN -->
+      <section id="formacion" class="formacion wrap">
+        <p class="label">[00] FORMACIÓN</p>
+        <h2 class="serif big" data-type>Marketing de moda</h2>
+        <p class="lead" data-words>{formacion.intro}</p>
+        <dl class="table" data-rows>
+          {formacion.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+        </dl>
+        <ol class="areas">
+          {formacion.areas.map(([t, d], i) => (
+            <li data-rise>
+              <span class="serif">{pad(i + 1)}</span>
+              <div><h3>{t}</h3><p class="mute">{d}</p></div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <!-- 04 · PROYECTOS -->
+      {items.map((it) => {
+        const { look, nn, tpl } = it;
+        const allPics = [...it.own, ...it.media];
+        const credit = it.ex && (
+          <a class="credit" href={it.ex.url} target="_blank" rel="noopener">Fotos vía {it.ex.source} ↗</a>
+        );
+        return (
+          <article class={`look t-${tpl}`} id={`look-${nn}`} data-n={nn} data-title={look.title}>
+            <div class="look-num serif" aria-hidden="true">{nn}</div>
+            <header class="look-head wrap">
+              <p class="label">LOOK {nn} · {look.kind.toUpperCase()}{it.year && ` · ${it.year}`}</p>
+              <h2 data-type>{look.title.toUpperCase()}</h2>
+            </header>
+
+            {tpl === 'card' && (
+              <div class="card-wrap wrap">
+                <div class="card" data-anim="card">
+                  <div class="card-top">
+                    <span class="card-brand"><small>celia</small>archivo</span>
+                    <i class="hole"></i>
+                    <span>INVENTARIO N° {nn}</span>
+                  </div>
+                  <dl class="card-t">
+                    {look.meta.map(([k, v]) => (<div><dt>{k}</dt><dd class="hand">{v}</dd></div>))}
+                  </dl>
+                  <div class="card-ref">
+                    {it.own[0] && <Shot pic={it.own[0]} alt={`${look.title} — 1`} class="polaroid" anim="develop" sizes="(min-width: 900px) 340px, 70vw" />}
+                    <span class="card-lbl">IMAGEN DE REFERENCIA</span>
+                  </div>
+                </div>
+                {it.own[1] && <Shot pic={it.own[1]} alt={`${look.title} — 2`} class="polaroid p2" anim="slide" sizes="(min-width: 900px) 340px, 70vw" />}
+              </div>
+            )}
+
+            {tpl === 'paper' && (
+              <div class="paper wrap">
+                <div class="paper-top">
+                  <dl class="paper-cap" data-anim="flip">
+                    {look.meta.map(([k, v]) => (<div><dt>{k}</dt><dd>{v}</dd></div>))}
+                  </dl>
+                  {it.own[1] && <Shot pic={it.own[1]} alt={`${look.title} — 2`} class="flip-img" anim="flip" sizes="(min-width: 900px) 420px, 80vw" />}
+                </div>
+                {it.own[0] && <Shot pic={it.own[0]} alt={`${look.title} — 1`} class="paper-big" anim="zoom" sizes="(min-width: 1040px) 1000px, 92vw" />}
+              </div>
+            )}
+
+            {tpl === 'spread' && (
+              <div class="spread wrap">
+                <div class="page pl">
+                  <p class="folio">ARCHIVO, VOLUMEN {nn}</p>
+                  <div class="stag">
+                    {[...it.own, ...it.media.slice(1, 4)].map((p, j) => (
+                      <Shot pic={p} alt={`${look.title} — detalle ${j + 1}`} class={`st st${j}`} anim="tone" sizes="(min-width: 900px) 200px, 40vw" />
+                    ))}
+                  </div>
+                </div>
+                <div class="page pr">
+                  <p class="folio">{nn}</p>
+                  <Shot pic={it.media[0]} alt={`${look.title} — principal`} class="big" anim="reveal" sizes="(min-width: 1040px) 500px, 92vw" />
+                  <p class="cap">{look.meta.map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>
+                </div>
+                {it.media.length > 4 && (
+                  <div class="cols">
+                    {it.media.slice(4).map((p, j) => (
+                      <Shot pic={p} alt={`${look.title} — ${j + 5}`} speed={j % 2 ? 0.18 : -0.08} sizes="(min-width: 900px) 33vw, 46vw" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tpl === 'hs' && (
+              <>
+                <div class="wrap">
+                  <dl class="table" data-rows>{look.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}</dl>
+                </div>
+                <div class="hs">
+                  <div class="hs-track">
+                    {allPics.map((p, j) => (
+                      <figure class="hs-item">
+                        <Shot pic={p} alt={`${look.title} — ${j + 1}`} speed={j % 2 ? 0.16 : -0.06} sizes="(min-width: 900px) 46vh, 46vw" />
+                        <figcaption>{pad(j + 1)} / {pad(allPics.length)}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {tpl === 'clip' && it.yt && it.thumb && (
+              <div class="clip wrap">
+                <div class="clip-frame" data-anim="expand">
+                  <button class="yt" data-id={it.yt} aria-label={`Reproducir videoclip ${look.title}`}>
+                    <Image src={it.thumb.src} alt="" widths={[640, 1280]} sizes="(min-width: 1040px) 1000px, 92vw" format="webp" loading="lazy" />
+                    <span class="play"><b>▶</b> PLAY</span>
+                    <span class="rec">● REC {nn}</span>
+                  </button>
+                </div>
+                <div class="clip-b">
+                  <dl class="table" data-rows>{look.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}</dl>
+                  <div class="duo">
+                    {it.own.map((p, j) => (
+                      <Shot pic={p} alt={`${look.title} — ${j + 1}`} speed={j ? 0.2 : -0.05} anim="tone" sizes="(min-width: 900px) 260px, 44vw" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {look.prendas && (
+              <div class="mq" aria-label={`Prendas: ${look.prendas.join(', ')}`}>
+                <div class="mq-track" aria-hidden="true">
+                  {[0, 1].map(() => (
+                    <span>{look.prendas!.map((p) => <><b>PRENDAS</b><i>{p}</i></>)}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(look.published || look.video || credit) && (
+              <div class="notes wrap">
+                {look.published && (
+                  look.published.url
+                    ? <a href={look.published.url} target="_blank" rel="noopener">{look.published.text} ↗</a>
+                    : <span>{look.published.text}</span>
+                )}
+                {look.video && <a href={look.video} target="_blank" rel="noopener">Ver en YouTube ↗</a>}
+                {credit}
+              </div>
+            )}
+          </article>
+        );
+      })}
+
+      <!-- 05 · CONTACTO -->
+      <section id="contacto" class="contact wrap">
+        <h2 class="gracias serif" aria-label="Gracias">{'GRACIAS'.split('').map((c) => <span aria-hidden="true">{c}</span>)}</h2>
+        <p class="mute small">POR SU TIEMPO Y ATENCIÓN</p>
+        <dl class="table" data-rows>
+          <dt>Email</dt><dd><a href={`mailto:${contacto.email}`}>{contacto.email}</a></dd>
+          <dt>Teléfono</dt><dd><a href={`tel:${contacto.telefono.replace(/\s/g, '')}`}>{contacto.telefono}</a></dd>
+          <dt>Instagram</dt><dd><a href={igUrl} target="_blank" rel="noopener">{contacto.instagram}</a></dd>
+        </dl>
+      </section>
+    </main>
+
+    <footer class="wrap">
+      <hr />
+      <p class="mute small">ARCHIVO 2026 · VERSIÓN 2</p>
+      <p class="small"><a href="#top">↑ Volver arriba</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href={`${base}/`}>Otras versiones</a></p>
+    </footer>
+
+    <dialog class="lightbox" aria-label="Imagen ampliada">
+      <img alt="" />
+      <button class="close" aria-label="Cerrar">✕</button>
+    </dialog>
+
+    <script>
+      import '../../scripts/v2';
+    </script>
+  </body>
+</html>

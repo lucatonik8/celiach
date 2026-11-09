@@ -1,0 +1,282 @@
+---
+import { Image, getImage } from 'astro:assets';
+import firma from '../../assets/firma.png';
+import { looks, formacion, contacto } from '../../data/portfolio';
+
+const files = import.meta.glob<{ default: ImageMetadata }>('../../assets/looks/*.jpg', { eager: true });
+const imgsFor = (n: number) =>
+  Object.entries(files)
+    .filter(([p]) => p.includes(`look${String(n).padStart(2, '0')}-`))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, m]) => m.default);
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const year = (l: (typeof looks)[number]) => l.meta.find(([k]) => k === 'Fecha')?.[1];
+
+const items = await Promise.all(
+  looks.map(async (look, i) => {
+    const imgs = imgsFor(i + 1);
+    const full = await Promise.all(imgs.map((src) => getImage({ src, width: Math.min(src.width, 1600), format: 'webp' })));
+    return { look, n: i + 1, imgs: imgs.map((src, j) => ({ src, full: full[j].src })) };
+  }),
+);
+const igUrl = `https://instagram.com/${contacto.instagram.replace('@', '')}`;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Celia Luengo Villa — Styling Portfolio</title>
+    <meta name="description" content="Styling portfolio + marketing de moda. Archivo 2026." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="bar">
+      <a href="#top" class="brand">C. LUENGO VILLA</a>
+      <nav>
+        <a href="#indice">Índice</a>
+        <a href="#formacion">Formación</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+      <span class="counter" aria-hidden="true"></span>
+    </header>
+
+    <main>
+      <section class="hero" id="top">
+        <Image src={firma} alt="Celia Luengo Villa" class="firma" widths={[320, 640]} sizes="(min-width: 640px) 320px, 70vw" loading="eager" />
+        <p class="hero-t">STYLING&nbsp;&nbsp;PORTFOLIO<br /><span>+&nbsp;&nbsp;MARKETING DE MODA</span></p>
+        <hr />
+        <p class="mute small">ARCHIVO 2026</p>
+        <a href="#indice" class="down" aria-label="Ir al índice">↓</a>
+      </section>
+
+      <section id="indice" class="wrap block">
+        <p class="label">[00] ÍNDICE</p>
+        <ol class="index">
+          <li><a href="#formacion"><span class="num">[00]</span><span class="it">Formación en marketing de moda</span><span class="mute">Máster</span></a></li>
+          {items.map(({ look, n }) => (
+            <li>
+              <a href={`#look-${pad(n)}`}>
+                <span class="num">[{pad(n)}]</span>
+                <span class="it">{look.title}</span>
+                <span class="mute">{[look.kind, year(look)].filter(Boolean).join(" · ")}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section id="formacion" class="wrap block">
+        <p class="label">[00]</p>
+        <h2>FORMACIÓN EN MARKETING DE MODA</h2>
+        <dl class="table">
+          {formacion.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+        </dl>
+        <p class="lead">{formacion.intro}</p>
+        <div class="areas">
+          {formacion.areas.map(([t, d]) => (
+            <div><h3>{t}</h3><p class="mute">{d}</p></div>
+          ))}
+        </div>
+      </section>
+
+      {items.map(({ look, n, imgs }) => (
+        <article class="wrap block look" id={`look-${pad(n)}`} data-n={pad(n)}>
+          <p class="label">LOOK {pad(n)} · {look.kind.toUpperCase()}</p>
+          <h2>PROYECTO {pad(n)} — {look.title.toUpperCase()}</h2>
+          <dl class="table">
+            {look.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+          </dl>
+          <div class="gallery">
+            {imgs.map(({ src, full }, j) => (
+              <button class="shot" style={`--r:${(src.width / src.height).toFixed(3)}`} data-full={full} aria-label={`Ampliar imagen ${j + 1} de ${look.title}`}>
+                <Image src={src} alt={`${look.title} — imagen ${j + 1}`} widths={[480, 800, 1200].filter((w) => w <= src.width).concat(src.width < 480 ? [src.width] : [])} sizes="(min-width: 900px) 440px, 86vw" format="webp" />
+              </button>
+            ))}
+          </div>
+          {(look.published || look.video || look.prendas) && (
+            <div class="notes">
+              {look.published && (
+                <p>
+                  {look.published.url
+                    ? <a href={look.published.url} target="_blank" rel="noopener">{look.published.text} ↗</a>
+                    : look.published.text}
+                </p>
+              )}
+              {look.video && (<p><a href={look.video} target="_blank" rel="noopener">Ver videoclip ↗</a></p>)}
+              {look.prendas && (
+                <p class="prendas"><b>PRENDAS</b> {look.prendas.join('  ')}</p>
+              )}
+            </div>
+          )}
+        </article>
+      ))}
+
+      <section id="contacto" class="wrap block contact">
+        <h2>GRACIAS</h2>
+        <p class="mute small">POR SU TIEMPO Y ATENCIÓN</p>
+        <dl class="table">
+          <dt>Email</dt><dd><a href={`mailto:${contacto.email}`}>{contacto.email}</a></dd>
+          <dt>Teléfono</dt><dd><a href={`tel:${contacto.telefono.replace(/\s/g, '')}`}>{contacto.telefono}</a></dd>
+          <dt>Instagram</dt><dd><a href={igUrl} target="_blank" rel="noopener">{contacto.instagram}</a></dd>
+        </dl>
+      </section>
+    </main>
+
+    <footer class="wrap">
+      <hr />
+      <p class="mute small">ARCHIVO 2026</p>
+      <a href="#top" class="small">↑ Volver arriba</a>
+    </footer>
+
+    <dialog class="lightbox" aria-label="Imagen ampliada">
+      <img alt="" />
+      <button class="close" aria-label="Cerrar">✕</button>
+    </dialog>
+
+    <script>
+      const dlg = document.querySelector<HTMLDialogElement>('.lightbox')!;
+      const big = dlg.querySelector('img')!;
+      document.querySelectorAll<HTMLButtonElement>('.shot').forEach((b) =>
+        b.addEventListener('click', () => {
+          big.src = b.dataset.full!;
+          big.alt = b.querySelector('img')?.alt ?? '';
+          dlg.showModal();
+        }),
+      );
+      dlg.addEventListener('click', () => dlg.close());
+
+      const counter = document.querySelector('.counter')!;
+      const io = new IntersectionObserver(
+        (entries) => entries.forEach((e) => {
+          if (e.isIntersecting) counter.textContent = `LOOK ${(e.target as HTMLElement).dataset.n} / 20`;
+        }),
+        { rootMargin: '-45% 0px -50% 0px' },
+      );
+      document.querySelectorAll('.look').forEach((el) => io.observe(el));
+      new IntersectionObserver(
+        (entries) => entries.forEach((e) => { if (e.isIntersecting) counter.textContent = ''; }),
+        { rootMargin: '-45% 0px -50% 0px' },
+      ).observe(document.querySelector('#contacto')!);
+    </script>
+
+    <style is:global>
+      :root {
+        --ink: #141414;
+        --mute: #8c8c8c;
+        --line: #d6d6d6;
+        --bg: #fff;
+        --font: 'Courier Prime', 'Courier New', Courier, monospace;
+        --gut: clamp(16px, 4vw, 48px);
+        color-scheme: light;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0; background: var(--bg); color: var(--ink);
+        font: 400 15px/1.6 var(--font); letter-spacing: 0.01em;
+      }
+      a { color: inherit; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+      hr { border: 0; border-top: 1px solid var(--ink); opacity: 0.6; width: 100%; margin: 1.5rem 0 0.75rem; }
+      h2 { font-size: clamp(1rem, 2.4vw, 1.25rem); font-weight: 700; margin: 0.25rem 0 1.25rem; line-height: 1.35; }
+      h3 { font-size: 0.82rem; font-weight: 700; text-transform: uppercase; margin: 0 0 0.35rem; }
+      .mute { color: var(--mute); }
+      .small { font-size: 0.75rem; letter-spacing: 0.08em; }
+      .label { color: var(--mute); font-size: 0.72rem; letter-spacing: 0.1em; margin: 0; }
+      .wrap { max-width: 1040px; margin: 0 auto; padding-inline: var(--gut); }
+      .block { padding-block: clamp(3rem, 9vw, 6rem); border-top: 1px solid var(--line); scroll-margin-top: 44px; }
+
+      /* barra */
+      .bar {
+        position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 1rem;
+        padding: 0.7rem var(--gut); background: rgb(255 255 255 / 0.92); backdrop-filter: blur(6px);
+        border-bottom: 1px solid var(--line); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+      }
+      .bar a { text-decoration: none; }
+      .brand { font-weight: 700; }
+      .bar nav { display: flex; gap: 1.1rem; margin-left: auto; }
+      .bar nav a:hover, .brand:hover { text-decoration: underline; }
+      .counter { color: var(--mute); min-width: 0; }
+      .counter:empty { display: none; }
+
+      /* portada */
+      .hero {
+        min-height: calc(100svh - 44px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; padding: 2rem var(--gut); max-width: 1040px; margin: 0 auto;
+      }
+      .firma { width: min(320px, 70vw); height: auto; }
+      .hero-t { margin: 0.5rem 0 0; font-size: 0.85rem; letter-spacing: 0.08em; }
+      .hero-t span { padding-left: 0.6em; }
+      .down { margin-top: 3rem; text-decoration: none; color: var(--mute); animation: bob 2.4s ease-in-out infinite; }
+      @keyframes bob { 50% { transform: translateY(6px); } }
+
+      /* índice */
+      .index { list-style: none; padding: 0; margin: 1.5rem 0 0; columns: 2 420px; column-gap: 3rem; }
+      .index li { break-inside: avoid; border-bottom: 1px solid var(--line); }
+      .index a { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: 0.75rem; padding: 0.6rem 0; text-decoration: none; font-size: 0.82rem; align-items: baseline; }
+      .index a:hover .it { text-decoration: underline; }
+      .index .num { color: var(--mute); }
+      .index .mute { font-size: 0.7rem; white-space: nowrap; }
+
+      /* tabla tipo ficha */
+      .table {
+        display: grid; grid-template-columns: minmax(7rem, 14rem) 1fr; margin: 0;
+        border: 1px solid var(--line); font-size: 0.8rem;
+      }
+      .table dt, .table dd { margin: 0; padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--line); }
+      .table dt { font-weight: 700; text-transform: uppercase; font-size: 0.72rem; border-right: 1px solid var(--line); }
+      .table dd { color: #6f6f6f; overflow-wrap: anywhere; }
+      .table dt:last-of-type, .table dd:last-of-type { border-bottom: 0; }
+
+      .lead { max-width: 62ch; margin: 2rem 0; }
+      .areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.75rem 2.5rem; }
+      .areas p { margin: 0; font-size: 0.82rem; }
+
+      /* galería: misma altura en escritorio, carrusel en móvil */
+      .gallery { display: flex; gap: clamp(1rem, 3vw, 2.5rem); margin-top: 2rem; align-items: flex-start; }
+      .shot { flex: var(--r) 1 0; padding: 0; border: 0; background: #f2f2f2; cursor: zoom-in; display: block; }
+      .shot img { display: block; width: 100%; height: auto; }
+      .notes { margin-top: 1.5rem; font-size: 0.78rem; display: grid; gap: 0.4rem; }
+      .notes p { margin: 0; }
+      .notes a { text-transform: uppercase; letter-spacing: 0.05em; }
+      .prendas { color: var(--mute); word-spacing: 0.3em; line-height: 1.8; }
+      .prendas b { color: var(--ink); margin-right: 0.5em; }
+
+      .contact { text-align: center; }
+      .contact .table { max-width: 560px; margin: 2rem auto 0; text-align: left; }
+
+      footer { text-align: center; padding-bottom: 3rem; }
+      footer hr { margin-top: 0; }
+      footer a { color: var(--mute); }
+
+      /* lightbox */
+      .lightbox { border: 0; padding: 0; background: transparent; max-width: 100vw; max-height: 100vh; width: 100vw; height: 100svh; }
+      .lightbox::backdrop { background: rgb(255 255 255 / 0.96); }
+      .lightbox img { width: 100%; height: 100%; object-fit: contain; padding: 3rem var(--gut); cursor: zoom-out; }
+      .close { position: fixed; top: 0.75rem; right: var(--gut); border: 0; background: none; font: inherit; font-size: 1.1rem; cursor: pointer; color: var(--ink); }
+
+      @media (max-width: 640px) {
+        body { font-size: 14px; }
+        .bar nav a:first-child { display: none; }
+        .counter { display: none; }
+        .index a { grid-template-columns: 2.6rem 1fr; }
+        .index .mute { grid-column: 2; margin-top: -0.4rem; }
+        .table { grid-template-columns: 6.6rem 1fr; font-size: 0.74rem; }
+        .table dt, .table dd { padding: 0.4rem 0.55rem; } .table dt { font-size: 0.66rem; }
+        .gallery {
+          margin-inline: calc(var(--gut) * -1); padding-inline: var(--gut);
+          overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gut);
+          align-items: center; scrollbar-width: none;
+        }
+        .gallery::-webkit-scrollbar { display: none; }
+        .shot { flex: 0 0 82%; scroll-snap-align: start; }
+      }
+      @media (min-width: 900px) { .counter { margin-left: 1.5rem; } }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .down { animation: none; } }
+    </style>
+  </body>
+</html>

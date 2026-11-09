@@ -40,7 +40,7 @@ export const looks: Look[] = [
       ['Modelo/s', 'Bea Jimeno @jimenobeis'],
       ['Fecha', '2023'],
     ],
-    published: { text: 'Publicado en Folie Magazine web', url: 'https://www.folie.es/' },
+    published: { text: 'Publicado en Folie Magazine web', url: 'https://www.folie.es/post/editorial-amadecaza' },
   },
   {
     title: 'Beer Real',

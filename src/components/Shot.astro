@@ -1,0 +1,28 @@
+---
+import { Image } from 'astro:assets';
+
+export type Pic = { src: ImageMetadata; full: string };
+interface Props {
+  pic: Pic;
+  alt: string;
+  sizes?: string;
+  class?: string;
+  anim?: string;
+  speed?: number;
+  eager?: boolean;
+}
+const { pic, alt, sizes = '(min-width: 900px) 40vw, 90vw', class: cls, anim, speed, eager } = Astro.props;
+const max = Math.min(pic.src.width, 1800);
+const widths = [...new Set([320, 640, 960, 1400].filter((w) => w < max).concat(max))];
+---
+
+<button
+  class:list={['shot', cls]}
+  data-full={pic.full}
+  data-anim={anim}
+  data-speed={speed}
+  aria-label={`Ampliar: ${alt}`}
+  style={`--r:${(pic.src.width / pic.src.height).toFixed(3)}`}
+>
+  <Image src={pic.src} alt={alt} widths={widths} sizes={sizes} format="webp" loading={eager ? 'eager' : 'lazy'} />
+</button>
