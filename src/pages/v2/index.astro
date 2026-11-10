@@ -63,6 +63,7 @@ const perim = (n: number, [x0, x1, y0, y1]: number[], ax: number, ay: number) =>
     return [+(x + j(1)).toFixed(2), +(y + j(2)).toFixed(2)];
   });
 const MOBILE_N = 16;
+const HS_SHOWN = 8; // fotos en la galería horizontal; el resto, en el visor
 const posD = perim(heroPics.length, [7, 93, 10, 90], 1, 0.62);
 const posM = perim(MOBILE_N, [10, 90, 7, 86], 0.55, 1);
 
@@ -186,7 +187,9 @@ const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
 
             {tpl === 'card' && (
               <div class="card-wrap wrap">
+               <div class="card-stage">
                 <div class="card" data-anim="card">
+                  <span class="stamp" aria-hidden="true">ARCHIVADO{it.year && ` · ${it.year}`}</span>
                   <div class="card-top">
                     <span class="card-brand"><small>celia</small>archivo</span>
                     <i class="hole"></i>
@@ -201,6 +204,7 @@ const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
                   </div>
                 </div>
                 {it.own[1] && <Shot pic={it.own[1]} alt={`${look.title} — 2`} class="polaroid p2" anim="slide" sizes="(min-width: 900px) 340px, 70vw" />}
+               </div>
               </div>
             )}
 
@@ -246,14 +250,22 @@ const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
                 <div class="wrap">
                   <dl class="table" data-rows>{look.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}</dl>
                 </div>
-                <div class="hs">
+                <div class="hs" data-extra={JSON.stringify(allPics.slice(HS_SHOWN).map((p) => p.full))}>
                   <div class="hs-track">
-                    {allPics.map((p, j) => (
+                    {allPics.slice(0, HS_SHOWN).map((p, j) => (
                       <figure class="hs-item">
                         <Shot pic={p} alt={`${look.title} — ${j + 1}`} speed={j % 2 ? 0.16 : -0.06} sizes="(min-width: 900px) 46vh, 46vw" />
                         <figcaption>{pad(j + 1)} / {pad(allPics.length)}</figcaption>
                       </figure>
                     ))}
+                    {allPics.length > HS_SHOWN && (
+                      <figure class="hs-item hs-more-item">
+                        <button class="hs-more" data-at={HS_SHOWN}>
+                          <span class="serif">+{allPics.length - HS_SHOWN}</span>
+                          <span>VER LAS {allPics.length} FOTOS →</span>
+                        </button>
+                      </figure>
+                    )}
                   </div>
                 </div>
               </>
@@ -325,6 +337,9 @@ const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
     <dialog class="lightbox" aria-label="Imagen ampliada">
       <img alt="" />
       <button class="close" aria-label="Cerrar">✕</button>
+      <button class="lb-nav prev" aria-label="Foto anterior">←</button>
+      <button class="lb-nav next" aria-label="Foto siguiente">→</button>
+      <p class="lb-count" aria-live="polite"></p>
     </dialog>
 
     <script>

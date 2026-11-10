@@ -9,19 +9,52 @@ const $$ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-/* ---------- lightbox ---------- */
+/* ---------- visor: recorre todas las fotos del proyecto ---------- */
 const dlg = $<HTMLDialogElement>('.lightbox');
 const big = $<HTMLImageElement>('img', dlg);
+const lbCount = $('.lb-count', dlg);
 let lenis: Lenis | undefined;
+let gallery: { src: string; alt: string }[] = [];
+let at = 0;
+const galleryOf = (look: Element) => {
+  const shots = $$<HTMLButtonElement>('.shot', look).map((b) => ({ src: b.dataset.full!, alt: b.querySelector('img')?.alt ?? '' }));
+  const extra: string[] = JSON.parse(look.querySelector<HTMLElement>('[data-extra]')?.dataset.extra ?? '[]');
+  const title = (look as HTMLElement).dataset.title ?? '';
+  return [...shots, ...extra.map((src, i) => ({ src, alt: `${title} — ${shots.length + i + 1}` }))];
+};
+const show = (i: number) => {
+  at = (i + gallery.length) % gallery.length;
+  big.src = gallery[at].src;
+  big.alt = gallery[at].alt;
+  lbCount.textContent = gallery.length > 1 ? `${String(at + 1).padStart(2, '0')} / ${String(gallery.length).padStart(2, '0')}` : '';
+  dlg.classList.toggle('single', gallery.length < 2);
+};
+const openAt = (scope: Element, src: string | null, index?: number) => {
+  gallery = galleryOf(scope);
+  show(index ?? Math.max(0, gallery.findIndex((g) => g.src === src)));
+  lenis?.stop();
+  dlg.showModal();
+};
 $$<HTMLButtonElement>('.shot').forEach((b) =>
-  b.addEventListener('click', () => {
-    big.src = b.dataset.full!;
-    big.alt = b.querySelector('img')?.alt ?? '';
-    lenis?.stop();
-    dlg.showModal();
-  }),
+  b.addEventListener('click', () => openAt(b.closest('.look') ?? document.body, b.dataset.full!)),
 );
+$$<HTMLButtonElement>('.hs-more').forEach((b) =>
+  b.addEventListener('click', () => openAt(b.closest('.look')!, null, +b.dataset.at!)),
+);
+$('.prev', dlg).addEventListener('click', (e) => { e.stopPropagation(); show(at - 1); });
+$('.next', dlg).addEventListener('click', (e) => { e.stopPropagation(); show(at + 1); });
+big.addEventListener('click', (e) => { e.stopPropagation(); if (gallery.length > 1) show(at + 1); else dlg.close(); });
 dlg.addEventListener('click', () => dlg.close());
+dlg.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') show(at + 1);
+  if (e.key === 'ArrowLeft') show(at - 1);
+});
+let sx = 0;
+dlg.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+dlg.addEventListener('touchend', (e) => {
+  const dx = e.changedTouches[0].clientX - sx;
+  if (Math.abs(dx) > 50) show(at + (dx < 0 ? 1 : -1));
+});
 dlg.addEventListener('close', () => lenis?.start());
 
 /* ---------- videoclips: se cargan solo al pulsar ---------- */
@@ -107,6 +140,7 @@ ScrollTrigger.refresh();
 
 function animate() {
   ScrollTrigger.config({ ignoreMobileResize: true });
+  document.documentElement.classList.add('anim');
 
   // Scroll suave solo con ratón/trackpad; en móvil se respeta el scroll nativo
   if (finePointer) {
@@ -174,17 +208,25 @@ function animate() {
     gsap.fromTo($('img', el), { filter: 'grayscale(1) contrast(1.15)' }, { filter: 'grayscale(0) contrast(1)', ease: 'none', scrollTrigger: scrub(el, 'top 85%', 'top 30%') });
     gsap.from(el, { y: 40 + (i % 3) * 25, opacity: 0, ease: 'none', scrollTrigger: scrub(el, 'top bottom', 'top 70%') });
   });
-  $$('[data-anim="card"]').forEach((el) => {
-    gsap.fromTo(el, { rotation: -7, y: 120 }, { rotation: 1.2, y: 0, ease: 'none', scrollTrigger: scrub(el, 'top bottom', 'top 30%') });
-  });
-  $$('[data-anim="develop"]').forEach((el) => {
-    gsap.fromTo($('img', el), { filter: 'brightness(2.1) sepia(0.7) blur(6px)' }, { filter: 'brightness(1) sepia(0) blur(0px)', ease: 'none', scrollTrigger: scrub(el, 'top 90%', 'bottom 50%') });
-  });
-  mm.add({ wide: '(min-width: 900px)', narrow: '(max-width: 899px)' }, (ctx) => {
-    const { wide } = ctx.conditions!;
-    $$('[data-anim="slide"]').forEach((el) => {
-      gsap.fromTo(el, wide ? { x: -40, rotation: -4 } : { y: 80, rotation: -8 }, { x: wide ? 230 : 0, y: 0, rotation: 7, ease: 'none', scrollTrigger: scrub(el.parentElement!, 'top 70%', 'bottom 60%') });
-    });
+  // Ficha de inventario: se queda fija mientras se rellena a mano, se revela la
+  // polaroid, cae la segunda foto encima y se sella. Ocupa unas 2,5 pantallas.
+  $$('.card-wrap').forEach((wrap) => {
+    const stage = $('.card-stage', wrap);
+    const card = $('.card', wrap);
+    const p2 = wrap.querySelector<HTMLElement>('.p2');
+    const fit = () => {
+      gsap.set(card, { scale: 1 });
+      gsap.set(card, { scale: Math.min(1, (stage.clientHeight - 16) / card.offsetHeight) });
+    };
+    fit();
+    ScrollTrigger.addEventListener('refreshInit', fit);
+    const tl = gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { trigger: wrap, start: 'top 85%', end: 'bottom bottom', scrub: 0.6 } });
+    tl.fromTo(card, { y: '55vh', rotation: -9 }, { y: 0, rotation: 1.2, duration: 1 })
+      .fromTo($$('.hand', card), { clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)', duration: 0.45, stagger: 0.3 }, 0.8)
+      .fromTo($('.polaroid img', card), { filter: 'brightness(2.2) sepia(0.7) blur(8px)' }, { filter: 'brightness(1) sepia(0) blur(0px)', duration: 1.1 }, '+=0.1');
+    if (p2) tl.fromTo(p2, { y: '90vh', rotation: 28 }, { y: 0, rotation: 6, duration: 1 }, '+=0.1');
+    tl.fromTo($('.stamp', card), { scale: 2.6, opacity: 0, rotation: -30 }, { scale: 1, opacity: 0.85, rotation: -12, duration: 0.3, ease: 'power2.in' }, '+=0.1')
+      .to({}, { duration: 0.6 });
   });
   $$('[data-anim="flip"]').forEach((el) => {
     gsap.fromTo(el, { rotation: 180 }, { rotation: 0, ease: 'none', scrollTrigger: scrub(el, 'top bottom', 'center 55%') });
@@ -202,7 +244,7 @@ function animate() {
     $$('.hs').forEach((hs) => {
       const track = $('.hs-track', hs);
       const dist = () => track.scrollWidth - hs.clientWidth;
-      const tween = gsap.to(track, { x: () => -dist(), ease: 'none', scrollTrigger: { trigger: hs, start: 'top top', end: () => '+=' + dist(), pin: true, scrub: 0.6, invalidateOnRefresh: true } });
+      const tween = gsap.to(track, { x: () => -dist(), ease: 'none', scrollTrigger: { trigger: hs, start: 'top top', end: () => '+=' + dist() * 0.75, pin: true, scrub: 0.6, invalidateOnRefresh: true } });
       $$('.hs-item', hs).forEach((it) =>
         gsap.fromTo($('img', it), { scale: 1.18, filter: 'grayscale(1)' }, { scale: 1, filter: 'grayscale(0)', ease: 'none', scrollTrigger: { trigger: it, containerAnimation: tween, start: 'left right', end: 'center 60%', scrub: true } }),
       );
