@@ -21,7 +21,7 @@ const toPic = async (src: ImageMetadata): Promise<Pic> => ({
 });
 
 // Plantilla de cada proyecto según el material que tiene (con excepciones a mano)
-const forced: Record<string, string> = { Unreachable: 'hs', Oliver: 'card', Lucia: 'card', Elena: 'card' };
+const forced: Record<string, string> = { Unreachable: 'hs', Oliver: 'card', 'Lucía': 'card', Elena: 'card' };
 let alt = 0;
 const items = await Promise.all(
   looks.map(async (look, i) => {

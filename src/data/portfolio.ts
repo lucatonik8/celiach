@@ -249,10 +249,10 @@ export const looks: Look[] = [
     ],
   },
   {
-    title: 'Lucia',
+    title: 'Lucía',
     kind: 'Editorial',
     meta: [
-      ['Proyecto', 'Editorial ‘‘LUCIA’’'],
+      ['Proyecto', 'Editorial ‘‘LUCÍA’’'],
       ['Rol', 'Estilista y fotógrafa'],
       ['Fotógrafo/a', 'Celia Luengo @celiachx'],
       ['Modelo/s', 'Lucía García @luciaagarciia'],
