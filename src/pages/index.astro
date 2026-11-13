@@ -1,33 +1,76 @@
 ---
-import { Image } from 'astro:assets';
+import { Image, getImage } from 'astro:assets';
 import firma from '../assets/firma-alpha.png';
-import v1a from '../assets/looks/look07-1.jpg';
-import v2a from '../assets/media/l0rna/03.webp';
-import v2b from '../assets/media/amadecaza/01.jpg';
-import v2c from '../assets/media/tiago/05.webp';
+import Shot, { type Pic } from '../components/Shot.astro';
+import { looks, formacion, contacto } from '../data/portfolio';
+import { extraFor, mediaFor, ytId, ytThumb } from '../data/media';
+import '../styles/v2.css';
 
-const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const lookFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/looks/*.jpg', { eager: true });
+const ownFor = (n: number) =>
+  Object.entries(lookFiles)
+    .filter(([p]) => p.includes(`look${String(n).padStart(2, '0')}-`))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, m]) => m.default);
 
-const versions = [
-  {
-    n: '01',
-    href: `${base}/v1/`,
-    name: 'Archivo',
-    date: '09.11.2026',
-    desc: 'Ficha técnica en monoespaciada, índice y galerías limpias. Sobria y rápida.',
-    tags: ['Estática', 'Ficha', 'Índice'],
-    imgs: [v1a],
-  },
-  {
-    n: '02',
-    href: `${base}/v2/`,
-    name: 'Archivo animado',
-    date: '10.11.2026',
-    desc: 'Portada con marco de fotos que se abre, raíl numerado, fichas de inventario con polaroid, páginas de revista, recortes de periódico que giran, galerías que avanzan con el scroll y videoclips integrados.',
-    tags: ['Scroll', 'Revista', 'Polaroid', 'Media web'],
-    imgs: [v2a, v2b, v2c],
-  },
+const pad = (n: number) => String(n).padStart(2, '0');
+const toPic = async (src: ImageMetadata): Promise<Pic> => ({
+  src,
+  full: (await getImage({ src, width: Math.min(src.width, 1800), format: 'webp' })).src,
+});
+
+// Plantilla de cada proyecto según el material que tiene (con excepciones a mano)
+const forced: Record<string, string> = { Unreachable: 'hs', Oliver: 'card', 'Lucía': 'card', Elena: 'card' };
+let alt = 0;
+const items = await Promise.all(
+  looks.map(async (look, i) => {
+    const n = i + 1;
+    const ownSrc = ownFor(n);
+    const mediaSrc = mediaFor(look.title);
+    const yt = ytId(look.video);
+    const auto = yt ? 'clip' : mediaSrc.length >= 10 ? 'hs' : mediaSrc.length ? 'spread' : alt++ % 2 ? 'paper' : 'card';
+    const tpl = forced[look.title] ?? auto;
+    const thumbSrc = yt ? ytThumb(yt) : undefined;
+    return {
+      look,
+      n,
+      nn: pad(n),
+      tpl,
+      yt,
+      ex: extraFor(look.title),
+      year: look.meta.find(([k]) => k === 'Fecha')?.[1],
+      own: await Promise.all(ownSrc.map(toPic)),
+      media: await Promise.all(mediaSrc.map(toPic)),
+      thumb: thumbSrc ? await toPic(thumbSrc) : undefined,
+    };
+  }),
+);
+
+// Portada: marco de miniaturas alrededor de la firma (ref. pop-up)
+const heroPics = [
+  ...items.map((it) => ({ src: it.own[0].src, n: it.nn })),
+  ...items.filter((it) => it.media.length).map((it) => ({ src: it.media[1]?.src ?? it.media[0].src, n: it.nn })),
 ];
+const perim = (n: number, [x0, x1, y0, y1]: number[], ax: number, ay: number) =>
+  Array.from({ length: n }, (_, i) => {
+    const w = (x1 - x0) * ax, h = (y1 - y0) * ay;
+    let d = ((i + 0.5) / n) * 2 * (w + h);
+    const j = (k: number) => ((((i + 3) * 9301 + k * 49297) % 233280) / 233280 - 0.5) * 3;
+    let x: number, y: number;
+    if (d < w) { x = x0 + d / ax; y = y0; }
+    else if ((d -= w) < h) { x = x1; y = y0 + d / ay; }
+    else if ((d -= h) < w) { x = x1 - d / ax; y = y1; }
+    else { d -= w; x = x0; y = y1 - d / ay; }
+    return [+(x + j(1)).toFixed(2), +(y + j(2)).toFixed(2)];
+  });
+const MOBILE_N = 16;
+const HS_SHOWN = 8; // fotos en la galería horizontal; el resto, en el visor
+const posD = perim(heroPics.length, [7, 93, 10, 90], 1, 0.62);
+const posM = perim(MOBILE_N, [10, 90, 7, 86], 0.55, 1);
+
+const kinds = [...new Set(looks.map((l) => l.kind))];
+const igUrl = `https://instagram.com/${contacto.instagram.replace('@', '')}`;
+const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
 ---
 
 <!doctype html>
@@ -35,69 +78,287 @@ const versions = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>Celia Luengo Villa — Versiones</title>
-    <meta name="robots" content="noindex" />
+    <title>Celia Luengo Villa — Styling Portfolio · V2</title>
+    <meta name="description" content="Styling portfolio + marketing de moda. Archivo 2026." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Reenie+Beanie&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <header class="bar">
+      <a href="#top" class="brand">C. LUENGO VILLA</a>
+      <span class="counter" aria-live="polite"></span>
+      <nav>
+        <a href="#indice">Índice</a>
+        <a href="#formacion">Formación</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+      <i class="progress" aria-hidden="true"></i>
+    </header>
+
+    <!-- Raíl de miniaturas numeradas (ref. archivo Nomad) -->
+    <nav class="rail" aria-label="Proyectos">
+      {items.map((it) => (
+        <a href={`#look-${it.nn}`} data-n={it.nn} aria-label={`Look ${it.nn}: ${it.look.title}`}>
+          <span>[{it.nn}]</span>
+          <Image src={firstSmall(it).src} alt="" width={96} format="webp" />
+        </a>
+      ))}
+    </nav>
+
     <main>
-      <header>
-        <Image src={firma} alt="Celia Luengo Villa" class="firma" widths={[320, 640]} sizes="260px" loading="eager" />
-        <p>[LANZADOR]<br />PORTFOLIO — VERSIONES</p>
-      </header>
-      <ol>
-        {versions.map((v) => (
-          <li>
-            <a href={v.href}>
-              <span class="n">[V{v.n}]</span>
-              <span class="pics">
-                {v.imgs.map((src, i) => (
-                  <Image src={src} alt="" width={360} format="webp" style={`--i:${i}`} />
-                ))}
-              </span>
-              <span class="body">
-                <span class="name">{v.name}</span>
-                <span class="desc">{v.desc}</span>
-                <span class="tags">{v.tags.map((t) => <i>{t}</i>)}</span>
-              </span>
-              <span class="go">{v.date}<b>Abrir →</b></span>
-            </a>
-          </li>
-        ))}
-      </ol>
-      <p class="foot">ARCHIVO 2026 · {versions.length} VERSIONES</p>
+      <!-- 01 · PORTADA -->
+      <section class="hero" id="top">
+        <div class="frame" aria-hidden="true">
+          {heroPics.map((p, i) => (
+            <span
+              class:list={['ft', { dk: i >= MOBILE_N }]}
+              style={`--x:${posD[i][0]}%;--y:${posD[i][1]}%;--mx:${posM[i]?.[0] ?? 50}%;--my:${posM[i]?.[1] ?? 50}%;--s:${(0.78 + ((i * 7) % 5) * 0.12).toFixed(2)}`}
+            >
+              <Image src={p.src} alt="" width={260} format="webp" loading={i < 12 ? 'eager' : 'lazy'} />
+            </span>
+          ))}
+        </div>
+        <div class="hero-c">
+          <Image src={firma} alt="Celia Luengo Villa" class="firma" widths={[320, 640]} sizes="(min-width: 640px) 360px, 66vw" loading="eager" />
+          <p class="hero-t">STYLING&nbsp;&nbsp;PORTFOLIO<br />+&nbsp;&nbsp;MARKETING DE MODA</p>
+          <p class="hero-s" data-type>[ARCHIVO 2026] — {items.length} PROYECTOS — {kinds.join(' / ').toUpperCase()}</p>
+        </div>
+        <a href="#indice" class="down" aria-label="Ir al índice"><span>SCROLL</span>↓</a>
+      </section>
+
+      <!-- 02 · ÍNDICE (ref. Nomad: texto vertical + listado) -->
+      <section id="indice" class="indice">
+        <p class="vert" aria-hidden="true">
+          {items.map((it) => `[${it.nn}] ${it.look.title.toUpperCase()}. `).join('')} [00] FORMACIÓN EN MARKETING DE MODA.
+        </p>
+        <div class="indice-c">
+          <p class="label">[PRESENTACIÓN]</p>
+          <h2 class="serif" data-type>Archivo de estilismo</h2>
+          <p class="mute small">2023 — 2026 · MADRID</p>
+          <ol class="index">
+            <li><a href="#formacion"><span class="num">[00]</span><span class="it">Formación en marketing de moda</span><span class="mute">Máster</span></a></li>
+            {items.map((it) => (
+              <li>
+                <a href={`#look-${it.nn}`} data-peek={firstSmall(it).full}>
+                  <Image class="ithumb" src={firstSmall(it).src} alt="" width={120} format="webp" />
+                  <span class="num">[{it.nn}]</span>
+                  <span class="it">{it.look.title}</span>
+                  <span class="mute">{[it.look.kind, it.year].filter(Boolean).join(' · ')}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <img class="peek" alt="" aria-hidden="true" />
+      </section>
+
+      <!-- 03 · FORMACIÓN -->
+      <section id="formacion" class="formacion wrap">
+        <p class="label">[00] FORMACIÓN</p>
+        <h2 class="serif big" data-type>Marketing de moda</h2>
+        <p class="lead" data-words>{formacion.intro}</p>
+        <dl class="table" data-rows>
+          {formacion.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+        </dl>
+        <ol class="areas">
+          {formacion.areas.map(([t, d], i) => (
+            <li data-rise>
+              <span class="serif">{pad(i + 1)}</span>
+              <div><h3>{t}</h3><p class="mute">{d}</p></div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <!-- 04 · PROYECTOS -->
+      {items.map((it) => {
+        const { look, nn, tpl } = it;
+        const allPics = [...it.own, ...it.media];
+        const credit = it.ex && (
+          <a class="credit" href={it.ex.url} target="_blank" rel="noopener">Fotos vía {it.ex.source} ↗</a>
+        );
+        return (
+          <article class={`look t-${tpl}`} id={`look-${nn}`} data-n={nn} data-title={look.title}>
+            <div class="look-num serif" aria-hidden="true">{nn}</div>
+            <header class="look-head wrap">
+              <p class="label">LOOK {nn} · {look.kind.toUpperCase()}{it.year && ` · ${it.year}`}</p>
+              <h2 data-type>{look.title.toUpperCase()}</h2>
+            </header>
+
+            {tpl === 'card' && (
+             <>
+              <div class="card-wrap wrap">
+               <div class="card-stage">
+                <div class="card" data-anim="card">
+                  <span class="stamp" aria-hidden="true">ARCHIVADO{it.year && ` · ${it.year}`}</span>
+                  <div class="card-top">
+                    <span class="card-brand"><small>celia</small>archivo</span>
+                    <i class="hole"></i>
+                    <span>INVENTARIO N° {nn}</span>
+                  </div>
+                  <dl class="card-t">
+                    {look.meta.map(([k, v]) => (<div><dt>{k}</dt><dd class="hand">{v}</dd></div>))}
+                  </dl>
+                  <div class="card-ref">
+                    {it.own[0] && <Shot pic={it.own[0]} alt={`${look.title} — 1`} class="polaroid" anim="develop" sizes="(min-width: 900px) 340px, 70vw" />}
+                    <span class="card-lbl">IMAGEN DE REFERENCIA</span>
+                  </div>
+                </div>
+                {it.own[1] && <Shot pic={it.own[1]} alt={`${look.title} — 2`} class="polaroid p2" anim="slide" sizes="(min-width: 900px) 340px, 70vw" />}
+               </div>
+              </div>
+               {allPics.length > 2 && (
+                 <div class="card-more wrap">
+                   <p class="label">ANEXO · {allPics.length - 2} {allPics.length - 2 > 1 ? 'FOTOS MÁS' : 'FOTO MÁS'}</p>
+                   <div class="card-grid">
+                     {allPics.slice(2).map((p, j) => (
+                       <figure>
+                         <Shot pic={p} alt={`${look.title} — ${j + 3}`} anim="tone" sizes="(min-width: 900px) 260px, 46vw" />
+                         <figcaption>{pad(j + 3)} / {pad(allPics.length)}</figcaption>
+                       </figure>
+                     ))}
+                   </div>
+                 </div>
+               )}
+             </>
+            )}
+
+            {tpl === 'paper' && (
+              <div class="paper wrap">
+                <div class="paper-top">
+                  <dl class="paper-cap" data-anim="flip">
+                    {look.meta.map(([k, v]) => (<div><dt>{k}</dt><dd>{v}</dd></div>))}
+                  </dl>
+                  {it.own[1] && <Shot pic={it.own[1]} alt={`${look.title} — 2`} class="flip-img" anim="flip" sizes="(min-width: 900px) 420px, 80vw" />}
+                </div>
+                {it.own[0] && <Shot pic={it.own[0]} alt={`${look.title} — 1`} class="paper-big" anim="zoom" sizes="(min-width: 1040px) 1000px, 92vw" />}
+              </div>
+            )}
+
+            {tpl === 'spread' && (
+              <div class="spread wrap">
+                <div class="page pl">
+                  <p class="folio">ARCHIVO, VOLUMEN {nn}</p>
+                  <div class="stag">
+                    {[...it.own, ...it.media.slice(1, 4)].map((p, j) => (
+                      <Shot pic={p} alt={`${look.title} — detalle ${j + 1}`} class={`st st${j}`} anim="tone" sizes="(min-width: 900px) 200px, 40vw" />
+                    ))}
+                  </div>
+                </div>
+                <div class="page pr">
+                  <p class="folio">{nn}</p>
+                  <Shot pic={it.media[0]} alt={`${look.title} — principal`} class="big" anim="reveal" sizes="(min-width: 1040px) 500px, 92vw" />
+                  <p class="cap">{look.meta.map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>
+                </div>
+                {it.media.length > 4 && (
+                  <div class="cols">
+                    {it.media.slice(4).map((p, j) => (
+                      <Shot pic={p} alt={`${look.title} — ${j + 5}`} speed={j % 2 ? 0.18 : -0.08} sizes="(min-width: 900px) 33vw, 46vw" />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tpl === 'hs' && (
+              <>
+                <div class="wrap">
+                  <dl class="table" data-rows>{look.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}</dl>
+                </div>
+                <div class="hs" data-extra={JSON.stringify(allPics.slice(HS_SHOWN).map((p) => p.full))}>
+                  <div class="hs-track">
+                    {allPics.slice(0, HS_SHOWN).map((p, j) => (
+                      <figure class="hs-item">
+                        <Shot pic={p} alt={`${look.title} — ${j + 1}`} speed={j % 2 ? 0.16 : -0.06} sizes="(min-width: 900px) 46vh, 46vw" />
+                        <figcaption>{pad(j + 1)} / {pad(allPics.length)}</figcaption>
+                      </figure>
+                    ))}
+                    {allPics.length > HS_SHOWN && (
+                      <figure class="hs-item hs-more-item">
+                        <button class="hs-more" data-at={HS_SHOWN}>
+                          <span class="serif">+{allPics.length - HS_SHOWN}</span>
+                          <span>VER LAS {allPics.length} FOTOS →</span>
+                        </button>
+                      </figure>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {tpl === 'clip' && it.yt && it.thumb && (
+              <div class="clip wrap">
+                <div class="clip-frame" data-anim="expand">
+                  <button class="yt" data-id={it.yt} aria-label={`Reproducir videoclip ${look.title}`}>
+                    <Image src={it.thumb.src} alt="" widths={[640, 1280]} sizes="(min-width: 1040px) 1000px, 92vw" format="webp" loading="lazy" />
+                    <span class="play"><b>▶</b> PLAY</span>
+                    <span class="rec">● REC {nn}</span>
+                  </button>
+                </div>
+                <div class="clip-b">
+                  <dl class="table" data-rows>{look.meta.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}</dl>
+                  <div class="duo">
+                    {it.own.map((p, j) => (
+                      <Shot pic={p} alt={`${look.title} — ${j + 1}`} speed={j ? 0.2 : -0.05} anim="tone" sizes="(min-width: 900px) 260px, 44vw" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {look.prendas && (
+              <div class="mq" aria-label={`Prendas: ${look.prendas.join(', ')}`}>
+                <div class="mq-track" aria-hidden="true">
+                  {[0, 1].map(() => (
+                    <span>{look.prendas!.map((p) => <><b>PRENDAS</b><i>{p}</i></>)}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(look.published || look.video || credit) && (
+              <div class="notes wrap">
+                {look.published && (
+                  look.published.url
+                    ? <a href={look.published.url} target="_blank" rel="noopener">{look.published.text} ↗</a>
+                    : <span>{look.published.text}</span>
+                )}
+                {look.video && <a href={look.video} target="_blank" rel="noopener">Ver en YouTube ↗</a>}
+                {credit}
+              </div>
+            )}
+          </article>
+        );
+      })}
+
+      <!-- 05 · CONTACTO -->
+      <section id="contacto" class="contact wrap">
+        <h2 class="gracias serif" aria-label="Gracias">{'GRACIAS'.split('').map((c) => <span aria-hidden="true">{c}</span>)}</h2>
+        <p class="mute small">POR SU TIEMPO Y ATENCIÓN</p>
+        <dl class="table" data-rows>
+          <dt>Email</dt><dd><a href={`mailto:${contacto.email}`}>{contacto.email}</a></dd>
+          <dt>Teléfono</dt><dd><a href={`tel:${contacto.telefono.replace(/\s/g, '')}`}>{contacto.telefono}</a></dd>
+          <dt>Instagram</dt><dd><a href={igUrl} target="_blank" rel="noopener">{contacto.instagram}</a></dd>
+        </dl>
+      </section>
     </main>
-    <style is:global>
-      :root { --ink: #161514; --mute: #8a8782; --line: #d9d5ce; --bg: #f4f2ed; color-scheme: light; }
-      * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--ink); font: 400 14px/1.6 'Courier Prime', monospace; overflow-x: clip; }
-      main { max-width: 980px; margin: 0 auto; padding: clamp(2.5rem, 8vw, 6rem) clamp(16px, 4vw, 48px); }
-      header { text-align: center; margin-bottom: clamp(2.5rem, 7vw, 5rem); }
-      .firma { width: min(260px, 60vw); height: auto; margin: 0 auto; display: block; mix-blend-mode: multiply; }
-      header p { font-size: 0.72rem; letter-spacing: 0.14em; margin: 0.8rem 0 0; }
-      ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
-      li { border-bottom: 1px solid var(--line); }
-      a { display: grid; grid-template-columns: 4rem 180px 1fr auto; gap: 1.5rem; align-items: center; padding: 1.6rem 0; color: inherit; text-decoration: none; transition: background 0.3s, padding 0.3s; }
-      a:hover { background: #fbfaf7; padding-inline: 1rem; }
-      .n { color: var(--mute); font-size: 0.8rem; }
-      .pics { position: relative; height: 120px; }
-      .pics img { position: absolute; top: 0; left: calc(var(--i) * 34px); height: 120px; width: auto; aspect-ratio: 3 / 4; object-fit: cover; rotate: calc((var(--i) - 1) * 4deg); box-shadow: 0 2px 8px rgb(0 0 0 / 0.12); transition: translate 0.4s, rotate 0.4s; }
-      a:hover .pics img { translate: calc(var(--i) * 18px) -4px; rotate: calc((var(--i) - 1) * 8deg); }
-      .body { display: grid; gap: 0.4rem; }
-      .name { font-family: 'Instrument Serif', serif; font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1; }
-      .desc { color: #5f5c57; font-size: 0.8rem; max-width: 52ch; }
-      .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-      .tags i { font-style: normal; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--line); padding: 0.1rem 0.45rem; }
-      .go { display: grid; text-align: right; font-size: 0.66rem; color: var(--mute); letter-spacing: 0.08em; gap: 0.3rem; }
-      .go b { color: var(--ink); font-size: 0.8rem; text-transform: uppercase; }
-      .foot { text-align: center; color: var(--mute); font-size: 0.68rem; letter-spacing: 0.14em; margin-top: 3rem; }
-      @media (max-width: 700px) {
-        a { grid-template-columns: 1fr; gap: 0.9rem; }
-        .n { order: -1; }
-        .go { text-align: left; grid-auto-flow: column; justify-content: space-between; }
-      }
-    </style>
+
+    <footer class="wrap">
+      <hr />
+      <p class="mute small">ARCHIVO 2026 · VERSIÓN 2</p>
+    </footer>
+
+    <dialog class="lightbox" aria-label="Imagen ampliada">
+      <img alt="" />
+      <button class="close" aria-label="Cerrar">✕</button>
+      <button class="lb-nav prev" aria-label="Foto anterior">←</button>
+      <button class="lb-nav next" aria-label="Foto siguiente">→</button>
+      <p class="lb-count" aria-live="polite"></p>
+    </dialog>
+
+    <script>
+      import '../scripts/v2';
+    </script>
   </body>
 </html>
