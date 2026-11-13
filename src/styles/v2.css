@@ -191,6 +191,12 @@ h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; margin: 0 0
   .anim .p2 { width: 260px; left: calc(50% + 150px); right: auto; top: auto; bottom: 8%; }
 }
 
+/* fotos extra debajo de la ficha */
+.card-more { position: relative; z-index: 2; margin: clamp(2rem, 5vw, 3.5rem) auto 0; max-width: 1000px; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 42vw), 1fr)); gap: 10px; margin-top: 0.8rem; align-items: start; }
+.card-grid figure { margin: 0; }
+.card-grid figcaption { font-size: 0.58rem; color: var(--mute); margin-top: 0.3rem; letter-spacing: 0.1em; }
+
 /* paper (ref. periódico) */
 .paper { position: relative; }
 .paper-top { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1rem, 4vw, 3rem); align-items: center; margin-bottom: clamp(1.5rem, 4vw, 3rem); }

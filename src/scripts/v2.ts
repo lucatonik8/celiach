@@ -243,8 +243,9 @@ function animate() {
   mm.add('(min-width: 900px)', () => {
     $$('.hs').forEach((hs) => {
       const track = $('.hs-track', hs);
-      const dist = () => track.scrollWidth - hs.clientWidth;
-      const tween = gsap.to(track, { x: () => -dist(), ease: 'none', scrollTrigger: { trigger: hs, start: 'top top', end: () => '+=' + dist() * 0.75, pin: true, scrub: 0.6, invalidateOnRefresh: true } });
+      // Si hay pocas fotos y no desborda, la distancia se queda en 0 (no se rompe el pin)
+      const dist = () => Math.max(0, track.scrollWidth - hs.clientWidth);
+      const tween = gsap.to(track, { x: () => -dist(), ease: 'none', scrollTrigger: { trigger: hs, start: 'top top', end: () => '+=' + Math.max(1, dist() * 0.75), pin: true, scrub: 0.6, invalidateOnRefresh: true } });
       $$('.hs-item', hs).forEach((it) =>
         gsap.fromTo($('img', it), { scale: 1.18, filter: 'grayscale(1)' }, { scale: 1, filter: 'grayscale(0)', ease: 'none', scrollTrigger: { trigger: it, containerAnimation: tween, start: 'left right', end: 'center 60%', scrub: true } }),
       );

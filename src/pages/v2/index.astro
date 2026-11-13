@@ -20,7 +20,8 @@ const toPic = async (src: ImageMetadata): Promise<Pic> => ({
   full: (await getImage({ src, width: Math.min(src.width, 1800), format: 'webp' })).src,
 });
 
-// Plantilla de cada proyecto según el material que tiene
+// Plantilla de cada proyecto según el material que tiene (con excepciones a mano)
+const forced: Record<string, string> = { Unreachable: 'hs', Oliver: 'card', Lucia: 'card', Elena: 'card' };
 let alt = 0;
 const items = await Promise.all(
   looks.map(async (look, i) => {
@@ -28,7 +29,8 @@ const items = await Promise.all(
     const ownSrc = ownFor(n);
     const mediaSrc = mediaFor(look.title);
     const yt = ytId(look.video);
-    const tpl = yt ? 'clip' : mediaSrc.length >= 10 ? 'hs' : mediaSrc.length ? 'spread' : alt++ % 2 ? 'paper' : 'card';
+    const auto = yt ? 'clip' : mediaSrc.length >= 10 ? 'hs' : mediaSrc.length ? 'spread' : alt++ % 2 ? 'paper' : 'card';
+    const tpl = forced[look.title] ?? auto;
     const thumbSrc = yt ? ytThumb(yt) : undefined;
     return {
       look,
@@ -186,6 +188,7 @@ const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
             </header>
 
             {tpl === 'card' && (
+             <>
               <div class="card-wrap wrap">
                <div class="card-stage">
                 <div class="card" data-anim="card">
@@ -206,6 +209,20 @@ const firstSmall = (it: (typeof items)[number]) => it.own[0] ?? it.media[0];
                 {it.own[1] && <Shot pic={it.own[1]} alt={`${look.title} — 2`} class="polaroid p2" anim="slide" sizes="(min-width: 900px) 340px, 70vw" />}
                </div>
               </div>
+               {allPics.length > 2 && (
+                 <div class="card-more wrap">
+                   <p class="label">ANEXO · {allPics.length - 2} {allPics.length - 2 > 1 ? 'FOTOS MÁS' : 'FOTO MÁS'}</p>
+                   <div class="card-grid">
+                     {allPics.slice(2).map((p, j) => (
+                       <figure>
+                         <Shot pic={p} alt={`${look.title} — ${j + 3}`} anim="tone" sizes="(min-width: 900px) 260px, 46vw" />
+                         <figcaption>{pad(j + 3)} / {pad(allPics.length)}</figcaption>
+                       </figure>
+                     ))}
+                   </div>
+                 </div>
+               )}
+             </>
             )}
 
             {tpl === 'paper' && (
